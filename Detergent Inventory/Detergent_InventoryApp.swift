@@ -8,10 +8,13 @@
 import SwiftUI
 
 @main
-struct Detergent_InventoryApp: App {
+struct DetergentInventoryApp: App {
+    @StateObject private var store = InventoryStore()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(store)
         }
     }
 }
