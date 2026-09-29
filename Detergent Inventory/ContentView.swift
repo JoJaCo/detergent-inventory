@@ -22,9 +22,18 @@ struct ContentView: View {
                         .font(.caption)
                         .tracking(2)
                         .foregroundColor(.secondary)
-                    Text("\(store.bucketsInStock)")
-                        .font(.system(size: 72, weight: .bold, design: .default))
-                        .foregroundColor(.black)
+                    
+                    if store.bucketsInStock == 0 {
+                        Text("NO INVENTORY")
+                            .font(.system(size: 32, weight: .bold))
+                            .tracking(2)
+                            .foregroundColor(.black)
+                            .padding(.vertical, 20)
+                    } else {
+                        Text("\(store.bucketsInStock)")
+                            .font(.system(size: 72, weight: .bold, design: .default))
+                            .foregroundColor(.black)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)

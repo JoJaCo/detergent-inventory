@@ -83,7 +83,7 @@ struct SellView: View {
                         .accentColor(.black)
                     }
                     
-                    // Type of Cleaning Supply (multi-select)
+                    // Type of Cleaning Supply (multi-select, with stock count on the right)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("TYPE OF CLEANING SUPPLY")
                             .font(.caption).tracking(2).foregroundColor(.secondary)
@@ -103,6 +103,19 @@ struct SellView: View {
                                             .font(.system(size: 15, weight: .medium))
                                             .foregroundColor(.black)
                                         Spacer()
+                                        
+                                        // Stock count on the right
+                                        let count = store.inventoryByType[supply, default: 0]
+                                        if count > 0 {
+                                            Text("\(count)")
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundColor(.black)
+                                                .monospacedDigit()
+                                        } else {
+                                            Text("—")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                        }
                                     }
                                     .padding(.vertical, 12)
                                     .padding(.horizontal, 4)
