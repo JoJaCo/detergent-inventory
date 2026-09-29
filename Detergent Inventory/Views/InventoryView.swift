@@ -30,6 +30,8 @@ struct InventoryView: View {
                 Text("\(store.bucketsInStock)")
                     .font(.system(size: 72, weight: .bold))
                     .foregroundColor(.black)
+                Text("Total: \(store.bucketsInStock)")
+                Text("Sum of types: \(store.inventoryByType.values.reduce(0, +))")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)

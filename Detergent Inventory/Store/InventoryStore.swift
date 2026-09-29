@@ -4,8 +4,6 @@ import Combine
 class InventoryStore: ObservableObject {
     @Published var bucketsInStock: Int = 0
     @Published var sales: [Sale] = []
-    
-    // New: per-supply-type bucket counts
     @Published var inventoryByType: [String: Int] = [:]
     
     private let stockKey = "bucketsInStock"
@@ -14,27 +12,20 @@ class InventoryStore: ObservableObject {
     
     init() {
         load()
+        reconcileInventory()
     }
     
-    // MARK: - Add / Remove
-    func addBuckets(_ amount: Int, type: String? = nil) {
-        bucketsInStock += amount
-        if let type = type, !type.isEmpty {
-            inventoryByType[type, default: 0] += amount
-        }
+    // MARK: - Set Stock (new core operation)
+    /// Sets the exact count for a supply type, and updates the grand total to match.
+    /// This is the only way inventory should change outside of a sale.
+    func setStock(_ newAmount: Int, for type: String) {
+        guard !type.isEmpty, newAmount >= 0 else { return }
+        let oldAmount = inventoryByType[type, default: 0]
+        let diff = newAmount - oldAmount
+        inventoryByType[type] = newAmount
+        bucketsInStock += diff
+        if bucketsInStock < 0 { bucketsInStock = 0 }
         save()
-    }
-    
-    func removeBuckets(_ amount: Int, type: String? = nil) -> Bool {
-        guard bucketsInStock >= amount else { return false }
-        if let type = type, !type.isEmpty {
-            let current = inventoryByType[type, default: 0]
-            guard current >= amount else { return false }
-            inventoryByType[type] = current - amount
-        }
-        bucketsInStock -= amount
-        save()
-        return true
     }
     
     // MARK: - Sales
@@ -46,7 +37,6 @@ class InventoryStore: ObservableObject {
         guard bucketsInStock >= quantity else { return false }
         bucketsInStock -= quantity
         
-        // Reduce per-type counts (split evenly across the selected types)
         if !typeOfCleaningSupply.isEmpty {
             let perType = quantity / typeOfCleaningSupply.count
             let remainder = quantity % typeOfCleaningSupply.count
@@ -67,6 +57,20 @@ class InventoryStore: ObservableObject {
         sales.append(sale)
         save()
         return true
+    }
+    
+    // MARK: - Reconciliation
+    private func reconcileInventory() {
+        let typeSum = inventoryByType.values.reduce(0, +)
+        if typeSum == bucketsInStock { return }
+        
+        if typeSum < bucketsInStock {
+            let leftover = bucketsInStock - typeSum
+            inventoryByType["Unsorted", default: 0] += leftover
+        } else {
+            bucketsInStock = typeSum
+        }
+        save()
     }
     
     // MARK: - Persistence

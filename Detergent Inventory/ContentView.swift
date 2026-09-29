@@ -9,9 +9,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: InventoryStore
-    @State private var showingAddStock = false
+    @State private var showingAdjustStock = false
     @State private var showingSell = false
-    @State private var showingRemoveStock = false
     
     var body: some View {
         NavigationView {
@@ -47,17 +46,11 @@ struct ContentView: View {
                 
                 // MARK: - Actions
                 VStack(spacing: 0) {
-                    actionButton(title: "ADD BUCKETS", icon: "plus") {
-                        showingAddStock = true
+                    actionButton(title: "ADJUST STOCK", icon: "slider.horizontal.3") {
+                        showingAdjustStock = true
                     }
                     divider
                     
-                    actionButton(title: "REMOVE BUCKETS", icon: "minus") {
-                        showingRemoveStock = true
-                    }
-                    divider
-                    
-                    // View Inventory (navigates to InventoryView)
                     NavigationLink(destination: InventoryView().environmentObject(store)) {
                         HStack {
                             Image(systemName: "list.bullet.rectangle")
@@ -118,14 +111,11 @@ struct ContentView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .preferredColorScheme(.light)
-        .sheet(isPresented: $showingAddStock) {
-            AddStockView().environmentObject(store)
+        .sheet(isPresented: $showingAdjustStock) {
+            AdjustStockView().environmentObject(store)
         }
         .sheet(isPresented: $showingSell) {
             SellView().environmentObject(store)
-        }
-        .sheet(isPresented: $showingRemoveStock) {
-            RemoveStockView().environmentObject(store)
         }
     }
     
