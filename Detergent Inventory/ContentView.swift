@@ -9,123 +9,89 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: InventoryStore
-    @State private var showingAdjustStock = false
-    @State private var showingSell = false
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // MARK: - Stock Display
-                VStack(spacing: 8) {
-                    Text("BUCKETS IN STOCK")
-                        .font(.caption)
-                        .tracking(2)
-                        .foregroundColor(.secondary)
-                    
-                    if store.bucketsInStock == 0 {
-                        Text("NO INVENTORY")
-                            .font(.system(size: 32, weight: .bold))
-                            .tracking(2)
-                            .foregroundColor(.black)
-                            .padding(.vertical, 20)
-                    } else {
-                        Text("\(store.bucketsInStock)")
-                            .font(.system(size: 72, weight: .bold, design: .default))
-                            .foregroundColor(.black)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
-                .background(Color.white)
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.black),
-                    alignment: .bottom
-                )
+                stockHeader
                 
                 // MARK: - Actions
                 VStack(spacing: 0) {
-                    actionButton(title: "ADJUST STOCK", icon: "slider.horizontal.3") {
-                        showingAdjustStock = true
+                    navRow(title: "NEW SALE", icon: "dollarsign.circle") {
+                        NewSaleView()
                     }
                     divider
                     
-                    NavigationLink(destination: InventoryView().environmentObject(store)) {
-                        HStack {
-                            Image(systemName: "list.bullet.rectangle")
-                                .font(.system(size: 20, weight: .medium))
-                            Text("VIEW INVENTORY")
-                                .font(.system(size: 16, weight: .semibold))
-                                .tracking(1)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .foregroundColor(.black)
-                        .padding(.horizontal)
-                        .padding(.vertical, 18)
-                        .contentShape(Rectangle())
+                    navRow(title: "PRODUCTS", icon: "shippingbox") {
+                        ProductListView()
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    
                     divider
                     
-                    actionButton(title: "SELL", icon: "dollarsign.circle") {
-                        showingSell = true
+                    navRow(title: "VIEW INVENTORY", icon: "list.bullet.rectangle") {
+                        InventoryView()
+                    }
+                    divider
+                    
+                    navRow(title: "SALES HISTORY", icon: "doc.text") {
+                        SalesHistoryView()
                     }
                 }
                 .background(Color.white)
                 
-                // MARK: - Sales History
-                if !store.sales.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("SALES HISTORY")
-                            .font(.caption)
-                            .tracking(2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal)
-                            .padding(.top, 16)
-                            .padding(.bottom, 8)
-                        
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(store.sales.reversed()) { sale in
-                                    SaleRow(sale: sale)
-                                    divider
-                                }
-                            }
-                        }
-                    }
-                    .background(Color.white)
-                } else {
-                    Spacer()
-                    Text("No sales recorded yet.")
-                        .foregroundColor(.secondary)
-                        .font(.subheadline)
-                    Spacer()
-                }
+                Spacer()
             }
             .background(Color.white)
             .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .preferredColorScheme(.light)
-        .sheet(isPresented: $showingAdjustStock) {
-            AdjustStockView().environmentObject(store)
+    }
+    
+    // MARK: - Stock Header
+    
+    private var stockHeader: some View {
+        VStack(spacing: 8) {
+            Text("BUCKETS IN STOCK")
+                .font(.caption)
+                .tracking(2)
+                .foregroundColor(.secondary)
+            
+            if store.totalStock == 0 {
+                Text("NO INVENTORY")
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(2)
+                    .foregroundColor(.black)
+                    .padding(.vertical, 20)
+            } else {
+                Text("\(store.totalStock)")
+                    .font(.system(size: 72, weight: .bold, design: .default))
+                    .foregroundColor(.black)
+            }
         }
-        .sheet(isPresented: $showingSell) {
-            SellView().environmentObject(store)
-        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+        .background(Color.white)
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(.black),
+            alignment: .bottom
+        )
     }
     
     // MARK: - Helpers
+    
     private var divider: some View {
         Rectangle().frame(height: 1).foregroundColor(.black)
     }
     
-    private func actionButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func navRow<Destination: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink(destination: destination().environmentObject(store)) {
             HStack {
                 Image(systemName: icon).font(.system(size: 20, weight: .medium))
                 Text(title).font(.system(size: 16, weight: .semibold)).tracking(1)

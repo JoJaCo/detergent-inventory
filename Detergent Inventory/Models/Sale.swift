@@ -3,32 +3,45 @@ import Foundation
 struct Sale: Identifiable, Codable {
     let id: UUID
     let clientName: String
+    let clientAddress: String
     let date: Date
-    let quantity: Int
     let paymentMethod: String
-    let typeOfCleaningSupply: [String]
+    let lineItems: [LineItem]
     
-    init(clientName: String,
-         date: Date,
-         quantity: Int,
-         paymentMethod: String,
-         typeOfCleaningSupply: [String] = []) {
-        self.id = UUID()
-        self.clientName = clientName
-        self.date = date
-        self.quantity = quantity
-        self.paymentMethod = paymentMethod
-        self.typeOfCleaningSupply = typeOfCleaningSupply
+    /// Computed, not stored. Always equals the sum of line item subtotals.
+    var total: Double {
+        lineItems.reduce(0) { $0 + $1.subtotal }
     }
     
-    // Custom decoder so old saved sales (without the new field) still load
+    /// Total number of buckets in this sale (across all items).
+    var totalQuantity: Int {
+        lineItems.reduce(0) { $0 + $1.quantity }
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, clientName, clientAddress, date, paymentMethod, lineItems
+    }
+    
+    init(clientName: String,
+         clientAddress: String,
+         date: Date = Date(),
+         paymentMethod: String,
+         lineItems: [LineItem]) {
+        self.id = UUID()
+        self.clientName = clientName
+        self.clientAddress = clientAddress
+        self.date = date
+        self.paymentMethod = paymentMethod
+        self.lineItems = lineItems
+    }
+    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
         clientName = try container.decode(String.self, forKey: .clientName)
+        clientAddress = (try? container.decode(String.self, forKey: .clientAddress)) ?? ""
         date = try container.decode(Date.self, forKey: .date)
-        quantity = try container.decode(Int.self, forKey: .quantity)
         paymentMethod = try container.decode(String.self, forKey: .paymentMethod)
-        typeOfCleaningSupply = (try? container.decode([String].self, forKey: .typeOfCleaningSupply)) ?? []
+        lineItems = (try? container.decode([LineItem].self, forKey: .lineItems)) ?? []
     }
 }
