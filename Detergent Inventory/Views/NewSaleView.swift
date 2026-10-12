@@ -1,14 +1,20 @@
-//
-//  NewSaleView.swift
-//  Detergent Inventory
-//
-//  Created by Jorge Contreras Jr on 10/10/26.
-//
-
 import SwiftUI
+
+enum ActiveSheet: Identifiable {
+    case saleComplete(Sale)
+    case shareInvoice(URL)
+    
+    var id: String {
+        switch self {
+        case .saleComplete(let sale): return "complete-\(sale.id)"
+        case .shareInvoice(let url): return "share-\(url.absoluteString)"
+        }
+    }
+}
 
 struct NewSaleView: View {
     @EnvironmentObject var store: InventoryStore
+    @EnvironmentObject var settings: AppSettings          // ← NEW
     @Environment(\.presentationMode) var presentationMode
     
     // Client info
@@ -19,12 +25,16 @@ struct NewSaleView: View {
     @State private var paymentMethod: String = "Cash"
     @State private var saleDate: Date = Date()
     
-    // Line items (drafts, not yet committed)
+    // Line items (drafts)
     @State private var draftItems: [DraftLineItem] = []
     
     // Error
     @State private var showError = false
     @State private var errorMessage: String = ""
+    
+    // Post-sale
+    @State private var activeSheet: ActiveSheet?
+    @State private var isGeneratingInvoice = false
     
     let paymentMethods = ["Cash", "Card", "Transfer", "Check"]
     
@@ -113,7 +123,6 @@ struct NewSaleView: View {
                         }
                     }
                     
-                    // Add item button
                     Button(action: addDraftItem) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
@@ -190,16 +199,47 @@ struct NewSaleView: View {
             }
         }
         .preferredColorScheme(.light)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .saleComplete(let sale):
+                SaleCompleteView(
+                    sale: sale,
+                    onShareInvoice: { shareInvoice(for: sale) },
+                    onDone: { presentationMode.wrappedValue.dismiss() }
+                )
+            case .shareInvoice(let url):
+                ShareSheet(items: [url])
+            }
+        }
+        .overlay {
+            if isGeneratingInvoice {
+                invoiceLoadingOverlay
+            }
+        }
+    }
+    
+    // MARK: - Invoice Loading Overlay
+    
+    private var invoiceLoadingOverlay: some View {
+        ZStack {
+            Color.white.opacity(0.9).ignoresSafeArea()
+            VStack(spacing: 20) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                    .scaleEffect(1.5)
+                Text("GENERATING INVOICE")
+                    .font(.caption).tracking(2).foregroundColor(.black)
+            }
+            .padding(40)
+            .overlay(Rectangle().stroke(Color.black, lineWidth: 2))
+        }
     }
     
     // MARK: - Helpers
     
     private func sectionHeader(_ text: String) -> some View {
         HStack {
-            Text(text)
-                .font(.caption)
-                .tracking(2)
-                .foregroundColor(.secondary)
+            Text(text).font(.caption).tracking(2).foregroundColor(.secondary)
             Spacer()
         }
         .padding(.bottom, -12)
@@ -226,7 +266,6 @@ struct NewSaleView: View {
     }
     
     private func recordSale() {
-        // Build final LineItems from drafts
         let items: [LineItem] = draftItems.compactMap { draft in
             guard draft.quantity > 0 else { return nil }
             return LineItem(
@@ -252,11 +291,110 @@ struct NewSaleView: View {
         )
         
         if success {
-            presentationMode.wrappedValue.dismiss()
+            if let newest = store.sales.last {
+                activeSheet = .saleComplete(newest)
+            }
         } else {
             showError = true
             errorMessage = "One or more items exceed available stock."
         }
+    }
+    
+    private func shareInvoice(for sale: Sale) {
+        isGeneratingInvoice = true
+        
+        // Capture company name on main thread before dispatching
+        let companyName = settings.companyName
+        
+        // Generate off the main thread
+        DispatchQueue.global(qos: .userInitiated).async {
+            let url = InvoiceGenerator.makePDF(for: sale, companyName: companyName)  // ← NEW
+            DispatchQueue.main.async {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    isGeneratingInvoice = false
+                    if let url = url {
+                        activeSheet = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeSheet = .shareInvoice(url)
+                        }
+                    } else {
+                        showError = true
+                        errorMessage = "Could not generate invoice."
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sale Complete View
+
+struct SaleCompleteView: View {
+    let sale: Sale
+    let onShareInvoice: () -> Void
+    let onDone: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+            
+            ZStack {
+                Circle()
+                    .stroke(Color.black, lineWidth: 3)
+                    .frame(width: 80, height: 80)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(.black)
+            }
+            
+            Text("SALE RECORDED")
+                .font(.system(size: 18, weight: .bold))
+                .tracking(2)
+                .foregroundColor(.black)
+            
+            VStack(spacing: 8) {
+                Text(sale.clientName)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.black)
+                Text("$\(String(format: "%.2f", sale.total))")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(.black)
+                    .monospacedDigit()
+            }
+            
+            Spacer()
+            
+            VStack(spacing: 12) {
+                Button(action: onShareInvoice) {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text("SHARE INVOICE")
+                            .font(.system(size: 16, weight: .semibold))
+                            .tracking(1)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.black)
+                }
+                
+                Button(action: onDone) {
+                    Text("DONE")
+                        .font(.system(size: 16, weight: .semibold))
+                        .tracking(1)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .overlay(
+                            Rectangle().stroke(Color.black, lineWidth: 2)
+                        )
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 32)
+        }
+        .background(Color.white)
+        .interactiveDismissDisabled()
     }
 }
 
@@ -306,7 +444,6 @@ struct DraftLineItemRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Row 1: Product picker + delete
             HStack {
                 Menu {
                     ForEach(store.products) { product in
@@ -336,11 +473,9 @@ struct DraftLineItemRow: View {
                 }
             }
             
-            // Row 2: Quantity + price
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("QTY")
-                        .font(.caption2).tracking(1).foregroundColor(.secondary)
+                    Text("QTY").font(.caption2).tracking(1).foregroundColor(.secondary)
                     TextField("0", text: $quantityText)
                         .keyboardType(.numberPad)
                         .font(.system(size: 16, weight: .medium))
@@ -357,8 +492,7 @@ struct DraftLineItemRow: View {
                 .frame(width: 70)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PRICE")
-                        .font(.caption2).tracking(1).foregroundColor(.secondary)
+                    Text("PRICE").font(.caption2).tracking(1).foregroundColor(.secondary)
                     HStack(spacing: 2) {
                         Text("$").font(.system(size: 16, weight: .medium)).foregroundColor(.black)
                         TextField("0.00", text: $priceText)
@@ -379,8 +513,7 @@ struct DraftLineItemRow: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("SUBTOTAL")
-                        .font(.caption2).tracking(1).foregroundColor(.secondary)
+                    Text("SUBTOTAL").font(.caption2).tracking(1).foregroundColor(.secondary)
                     Text("$\(String(format: "%.2f", item.subtotal))")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.black)
@@ -388,7 +521,6 @@ struct DraftLineItemRow: View {
                 }
             }
             
-            // Stock warning
             if exceedsStock {
                 Text("Only \(maxStock) in stock")
                     .font(.caption2)
@@ -414,5 +546,6 @@ struct NewSaleView_Previews: PreviewProvider {
     static var previews: some View {
         NewSaleView()
             .environmentObject(InventoryStore())
+            .environmentObject(AppSettings())
     }
 }

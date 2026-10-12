@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: InventoryStore
+    @EnvironmentObject var settings: AppSettings
     
     var body: some View {
         NavigationView {
@@ -35,6 +36,11 @@ struct ContentView: View {
                     
                     navRow(title: "SALES HISTORY", icon: "doc.text") {
                         SalesHistoryView()
+                    }
+                    divider
+                    
+                    navRow(title: "SETTINGS", icon: "gearshape") {
+                        SettingsView().environmentObject(settings)
                     }
                 }
                 .background(Color.white)
@@ -109,6 +115,8 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView().environmentObject(InventoryStore())
+        ContentView()
+            .environmentObject(InventoryStore())
+            .environmentObject(AppSettings())
     }
 }

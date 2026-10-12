@@ -217,18 +217,7 @@ struct ShareItem: Identifiable {
     let url: URL
 }
 
-// MARK: - Share Sheet
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
-}
-
+// MARK: - Sales History
 struct SalesHistoryView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
